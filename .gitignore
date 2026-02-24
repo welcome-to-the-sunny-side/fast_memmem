@@ -1,6 +1,6 @@
-.bin
+*.bin
 .vscode
-.inp
+*.inp
 bin
-.o
-.out
+*.o
+*.out
