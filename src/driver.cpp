@@ -14,28 +14,22 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+
+using memmem_fn = void* ( *)(const void *, const size_t, const void *, const size_t);
+
 #include "fast_memmem.hpp"
+memmem_fn our_memmem = fast_memmem;
 
-// #include adversarial later
+// memmem_fn enemy_memmem = memmem;
 
-__attribute__((noinline))
-void* our_memmem(  const void* haystack, const size_t haystack_len, const void* needle, const size_t needle_len) {return fast_memmem(haystack, haystack_len, needle, needle_len);}
+#include "Wojciech_Mula_SWAR.hpp"
+memmem_fn enemy_memmem = swar64_strstr_anysize;
 
-__attribute__((noinline))
-void* enemy_memmem(  const void* haystack, const size_t haystack_len, const void* needle, const size_t needle_len) {return memmem(haystack, haystack_len, needle, needle_len);}
-
-// Use only simple types/scalars/addresses here. 
-// If you have an object of complex non-scalar type, just pass its address.
-template<typename T>
-inline void eat(T const &food) 
+__attribute__((noinline, noipa))
+void* call_once(memmem_fn fn, const void* h, const size_t hl, const void *n, const size_t nl)
 {
-    if constexpr(std::is_floating_point_v<T>)
-        asm volatile("" : : "x"(food));
-    else if constexpr(std::is_scalar_v<T>) 
-        asm volatile("" : : "r"(food));
-    else 
-        static_assert(!sizeof(T), "eat(T): use simple stuff; for objects pass &obj");
-}
+    return fn(h, hl, n, nl);
+};
 
 const int PATH_LENGTH = 512;
 const int TEST_LABEL = 100;
@@ -44,7 +38,9 @@ const int64_t CALIBRATION_TIMES_IN_MS = 10;
 const int64_t MS_TO_NS = 1'000'000;
 const int64_t MIN_BATCH_TIME_IN_MS = 100;
 
-std::pair<char*, int> map_file(const char* path)
+volatile uintptr_t trash_can = 0;
+
+std::pair<char*, size_t> map_file(const char* path)
 {
     int fd = open(path, O_RDONLY);
     if(fd < 0)
@@ -72,7 +68,7 @@ int64_t calibrate_batch_size (const char* haystack, const size_t haystack_len, c
     {
         auto t0 = std::chrono::steady_clock::now();
         for(int64_t i = 0; i < n; i ++)
-            eat(our_memmem(haystack, haystack_len, needle, needle_len));
+            trash_can ^= (uintptr_t)call_once(our_memmem, haystack, haystack_len, needle, needle_len);
         auto t1 = std::chrono::steady_clock::now();
         
         int64_t elapsed_time = std::chrono::duration_cast<std::chrono::nanoseconds> (t1 - t0).count();
@@ -91,7 +87,7 @@ int64_t calibrate_batch_size (const char* haystack, const size_t haystack_len, c
     {
         auto t0 = std::chrono::steady_clock::now();
         for(int64_t i = 0; i < n; i ++)
-            eat(enemy_memmem(haystack, haystack_len, needle, needle_len));
+            trash_can ^= (uintptr_t)call_once(enemy_memmem, haystack, haystack_len, needle, needle_len);        
         auto t1 = std::chrono::steady_clock::now();
         
         int64_t elapsed_time = std::chrono::duration_cast<std::chrono::nanoseconds> (t1 - t0).count();
@@ -151,7 +147,7 @@ int main(int argc, char **argv)
         std::printf("\n\nRunning test %d, labelled \"%s\", with (runs = %d) * (batch size = %ld) = %ld individual calls.\nHaystack size : %zu bytes \nNeedle size : %zu bytes\n", T, test_label, runs, batch_size, int64_t(runs) * int64_t(batch_size), haystack_size, needle_size);
 
         //small correctness check
-        if(our_memmem(haystack_ptr, haystack_size, needle_ptr, needle_size) != enemy_memmem(haystack_ptr, haystack_size, needle_ptr, needle_size))
+        if(call_once(our_memmem, haystack_ptr, haystack_size, needle_ptr, needle_size) != call_once(enemy_memmem, haystack_ptr, haystack_size, needle_ptr, needle_size))
         {
             std::printf("Output mismatch on test %d. Aborting...\n", T);
             exit(0);
@@ -159,7 +155,7 @@ int main(int argc, char **argv)
 
         //us
         for(int j = 0; j < WARMUP; j ++)
-            eat(our_memmem(haystack_ptr, haystack_size, needle_ptr, needle_size));
+            trash_can ^= (uintptr_t)call_once(our_memmem, haystack_ptr, haystack_size, needle_ptr, needle_size);
 
         int64_t our_times[runs];
 
@@ -167,7 +163,7 @@ int main(int argc, char **argv)
         {
             auto t0 = std::chrono::steady_clock::now();
             for(int64_t k = 0; k < batch_size; k ++)
-                eat(our_memmem(haystack_ptr, haystack_size, needle_ptr, needle_size));
+                trash_can ^= (uintptr_t)call_once(our_memmem, haystack_ptr, haystack_size, needle_ptr, needle_size);
             auto t1 = std::chrono::steady_clock::now();
             our_times[j] = std::chrono::duration_cast<std::chrono::nanoseconds> (t1 - t0).count();
         }
@@ -176,7 +172,7 @@ int main(int argc, char **argv)
         
         //enemy
         for(int j = 0; j < WARMUP; j ++)
-            eat(enemy_memmem(haystack_ptr, haystack_size, needle_ptr, needle_size));
+            trash_can ^= (uintptr_t)call_once(enemy_memmem, haystack_ptr, haystack_size, needle_ptr, needle_size);
 
         int64_t enemy_times[runs]; 
 
@@ -184,7 +180,7 @@ int main(int argc, char **argv)
         {
             auto t0 = std::chrono::steady_clock::now();
             for(int64_t k = 0; k < batch_size; k ++)
-                eat(enemy_memmem(haystack_ptr, haystack_size, needle_ptr, needle_size));
+                trash_can ^= (uintptr_t)call_once(enemy_memmem, haystack_ptr, haystack_size, needle_ptr, needle_size);
             auto t1 = std::chrono::steady_clock::now();
             enemy_times[j] = std::chrono::duration_cast<std::chrono::nanoseconds> (t1 - t0).count();
         }
@@ -200,5 +196,6 @@ int main(int argc, char **argv)
         munmap(haystack_ptr, haystack_size);
     }
 
+    std::printf("%p\n", trash_can);
     return 0;
 }
