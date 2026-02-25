@@ -42,7 +42,7 @@ const int TEST_LABEL = 100;
 const int WARMUP = 10;
 const int64_t CALIBRATION_TIMES_IN_MS = 10;
 const int64_t MS_TO_NS = 1'000'000;
-const int64_t MIN_BATCH_TIME_IN_MS = 200;
+const int64_t MIN_BATCH_TIME_IN_MS = 100;
 
 std::pair<char*, int> map_file(const char* path)
 {
@@ -104,11 +104,11 @@ int64_t calibrate_batch_size (const char* haystack, const size_t haystack_len, c
         break;
     }
 
-    int64_t smallest = std::min(our_time, enemy_time);
-    if(smallest == int64_t(0))
-        smallest = 1;
+    int64_t bigger = std::max(our_time, enemy_time);
+    if(bigger == int64_t(0))
+        bigger = 1;
 
-    int64_t batch_size = (MIN_BATCH_TIME_IN_MS * MS_TO_NS + smallest - 1) / smallest;
+    int64_t batch_size = (MIN_BATCH_TIME_IN_MS * MS_TO_NS + bigger - 1) / bigger;
 
     return batch_size;
 }
