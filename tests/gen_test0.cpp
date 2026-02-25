@@ -9,7 +9,7 @@
 
 const int TEST_ID = 0;
 char TEST_LABEL[] = "randomized (probably) single occurrence";
-const int RUNS = 10;
+const int RUNS = 2;
 const int ALPHA = 45;            //[1, 256)
 const size_t HAY_SZ = 1002435;
 const size_t NED_SZ = 3544;

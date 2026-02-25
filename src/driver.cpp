@@ -115,7 +115,7 @@ int64_t calibrate_batch_size (const char* haystack, const size_t haystack_len, c
 
 int main(int argc, char **argv)
 {
-    const char* test_dir = "tests";
+    const char* test_dir = "../tests";
     if(argc > 2)        //expect --tests <testpath>
         test_dir = argv[2];
         
@@ -148,7 +148,7 @@ int main(int argc, char **argv)
 
         int64_t batch_size = calibrate_batch_size(haystack_ptr, haystack_size, needle_ptr, needle_size);
 
-        std::printf("\n\nRunning test %d, labelled %s, with (runs = %d) * (batch size = %ld) = %ld individual calls.\nHaystack size : %zu bytes \nNeedle size : %zu bytes\n", T, test_label, runs, batch_size, int64_t(runs) * int64_t(batch_size), haystack_size, needle_size);
+        std::printf("\n\nRunning test %d, labelled \"%s\", with (runs = %d) * (batch size = %ld) = %ld individual calls.\nHaystack size : %zu bytes \nNeedle size : %zu bytes\n", T, test_label, runs, batch_size, int64_t(runs) * int64_t(batch_size), haystack_size, needle_size);
 
         //small correctness check
         if(our_memmem(haystack_ptr, haystack_size, needle_ptr, needle_size) != enemy_memmem(haystack_ptr, haystack_size, needle_ptr, needle_size))
