@@ -18,12 +18,12 @@
 using memmem_fn = void* ( *)(const void *, const size_t, const void *, const size_t);
 
 #include "fast_memmem.hpp"
-memmem_fn our_memmem = fast_memmem;
+memmem_fn our_memmem = fast_memmem_AVX;
 
-// memmem_fn enemy_memmem = memmem;
+memmem_fn enemy_memmem = memmem;
 
-#include "Wojciech_Mula_SWAR.hpp"
-memmem_fn enemy_memmem = swar64_strstr_anysize;
+// #include "W_Mula_SWAR.hpp"
+// memmem_fn enemy_memmem = swar64_strstr_anysize;
 
 __attribute__((noinline, noipa))
 void* call_once(memmem_fn fn, const void* h, const size_t hl, const void *n, const size_t nl)
