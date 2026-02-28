@@ -7,9 +7,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-const int TEST_ID = 1;
-char TEST_LABEL[] = "small alphabet, randomized string, so memcmp probably becomes the bottleneck";
-const int RUNS = 2;
+const int TEST_ID = 2;
+char TEST_LABEL[] = "3-char alphabet, randomized string, so memcmp gets called very frequently";
+const int RUNS = 10;
 const int ALPHA = 3;            //[1, 256)
 const size_t HAY_SZ = 356356;
 const size_t NED_SZ = 3544;
